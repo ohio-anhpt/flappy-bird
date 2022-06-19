@@ -6,6 +6,7 @@ import 'package:flutter_bird/game/config.dart';
 import 'package:flutter_bird/main.dart';
 
 enum TubeType { top, bottom }
+enum TubeStatus { stop, moving }
 
 class Tube extends PositionComponent {
   late SpriteComponent ground;
@@ -21,6 +22,7 @@ class Tube extends PositionComponent {
       ground.x < Singleton.instance.screenSize.width;
 
   bool crossedBird = false;
+  TubeStatus status = TubeStatus.stop;
 
   Tube({required this.type, this.bottomTube});
 
@@ -70,17 +72,26 @@ class Tube extends PositionComponent {
 
   @override
   void update(double dt) {
-    if (!_hasBeenOnScreen && isOnScreen) {
-      _hasBeenOnScreen = true;
+    if (status == TubeStatus.moving) {
+      if (!_hasBeenOnScreen && isOnScreen) {
+        _hasBeenOnScreen = true;
+      }
+      if (_hasBeenOnScreen && !isOnScreen) {
+        ground.x = Singleton.instance.screenSize.width * 1.2;
+        setY();
+        crossedBird = false;
+        _hasBeenOnScreen = false;
+      }
+      ground.x -= dt * Speed.GroundSpeed;
     }
-    if (_hasBeenOnScreen && !isOnScreen) {
-      print("Moved");
-      ground.x = Singleton.instance.screenSize.width * 1.2;
-      setY();
-      crossedBird = false;
-      _hasBeenOnScreen = false;
-    }
-    ground.x -= dt * Speed.GroundSpeed;
+  }
+
+  void stop() {
+    status = TubeStatus.stop;
+  }
+
+  void move() {
+    status = TubeStatus.moving;
   }
 
   void setY() {

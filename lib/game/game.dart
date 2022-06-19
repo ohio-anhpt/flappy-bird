@@ -20,7 +20,7 @@ enum BirdStatus { waiting, flying }
 class FlutterBirdGame extends FlameGame {
   var bird = Bird(sizeWidth: Singleton.instance.screenSize.width);
   var bottom = Bottom(sizeWidth: Singleton.instance.screenSize.width);
-  var gameOver = GameOver();
+  GameOver? gameOver;
 
   var score = Scorer(
       screenSize: Size(Singleton.instance.screenSize.width,
@@ -31,6 +31,7 @@ class FlutterBirdGame extends FlameGame {
   late Tube secondTopTube;
   var thirdBottomTube = Tube(type: TubeType.bottom);
   late Tube thirdTopTube;
+  late List<Tube> allTubes;
 
   double xTubeOffset = 264;
 
@@ -43,16 +44,19 @@ class FlutterBirdGame extends FlameGame {
     secondTopTube = Tube(type: TubeType.top, bottomTube: secondBottomTube);
     thirdTopTube = Tube(type: TubeType.top, bottomTube: thirdBottomTube);
     await add(background);
-    await add(firstBottomTube);
-    await add(firstTopTube);
-    await add(secondBottomTube);
-    await add(secondTopTube);
-    await add(thirdBottomTube);
-    await add(thirdTopTube);
-    await add(bird);
+    allTubes = [
+      firstBottomTube,
+      firstTopTube,
+      secondBottomTube,
+      secondTopTube,
+      thirdBottomTube,
+      thirdTopTube
+    ];
+    await addAll(allTubes);
     await add(bottom);
+    await add(bird);
+
     await add(score);
-    await add(gameOver);
     initPositions();
     status = GameStatus.waiting;
     return super.onLoad();
@@ -61,7 +65,9 @@ class FlutterBirdGame extends FlameGame {
   void initPositions() {
     double xTubeStart = size[0] * 1.5;
     bird.setPosition(ComponentPositions.birdX, ComponentPositions.birdY);
-    bottom.setPosition(0, size[1] - ComponentDimensions.bottomHeight);
+    var groundY = size[1] - ComponentDimensions.bottomHeight;
+    bottom.setPosition(0, groundY);
+    bird.setGroundY(groundY);
     firstBottomTube.setPosition(xTubeStart, 400);
     firstTopTube.setPosition(xTubeStart, -250);
     secondBottomTube.setPosition(xTubeStart + xTubeOffset, 400);
@@ -72,58 +78,66 @@ class FlutterBirdGame extends FlameGame {
 
   @override
   void update(double dt) {
-    if (status != GameStatus.playing) {
-      return;
+    if (status != GameStatus.gameOver) {
+      bottom.move();
     }
 
-    bottom.move();
+    if (status == GameStatus.playing) {
+      var birdRect = bird.mainSprite.toRect();
 
-    var birdRect = bird.ground.toRect();
+      if (check2ItemsCollision(birdRect, bottom.rect)) {
+        gameOverAction();
+      }
 
-    if (check2ItemsCollision(birdRect, bottom.rect)) {
-      gameOverAction();
-    }
+      if (check2ItemsCollision(birdRect, firstBottomTube.ground.toRect())) {
+        gameOverAction();
+      }
 
-    if (check2ItemsCollision(birdRect, firstBottomTube.ground.toRect())) {
-      gameOverAction();
-    }
+      if (check2ItemsCollision(birdRect, firstTopTube.ground.toRect())) {
+        gameOverAction();
+      }
 
-    if (check2ItemsCollision(birdRect, firstTopTube.ground.toRect())) {
-      gameOverAction();
-    }
+      if (check2ItemsCollision(birdRect, secondBottomTube.ground.toRect())) {
+        gameOverAction();
+      }
 
-    if (check2ItemsCollision(birdRect, secondBottomTube.ground.toRect())) {
-      gameOverAction();
-    }
+      if (check2ItemsCollision(birdRect, secondTopTube.ground.toRect())) {
+        gameOverAction();
+      }
 
-    if (check2ItemsCollision(birdRect, secondTopTube.ground.toRect())) {
-      gameOverAction();
-    }
+      if (check2ItemsCollision(birdRect, thirdBottomTube.ground.toRect())) {
+        gameOverAction();
+      }
 
-    if (check2ItemsCollision(birdRect, thirdBottomTube.ground.toRect())) {
-      gameOverAction();
-    }
+      if (check2ItemsCollision(birdRect, thirdTopTube.ground.toRect())) {
+        gameOverAction();
+      }
 
-    if (check2ItemsCollision(birdRect, thirdTopTube.ground.toRect())) {
-      gameOverAction();
-    }
-
-    if (checkIfBirdCrossedTube(firstTopTube) ||
-        checkIfBirdCrossedTube(secondTopTube) ||
-        checkIfBirdCrossedTube(thirdTopTube)) {
-      score.increase();
+      if (checkIfBirdCrossedTube(firstTopTube) ||
+          checkIfBirdCrossedTube(secondTopTube) ||
+          checkIfBirdCrossedTube(thirdTopTube)) {
+        score.increase();
+      }
     }
 
     return super.update(dt);
   }
 
-  void gameOverAction() {
+  Future<void> gameOverAction() async {
     if (status != GameStatus.gameOver) {
       FlameAudio.play('hit.wav');
       FlameAudio.play('die.wav');
       status = GameStatus.gameOver;
-      gameOver.y = (Singleton.instance.screenSize.height) / 3;
-      gameOver.x = (Singleton.instance.screenSize.width) / 4;
+      bird.die();
+      gameOver = GameOver();
+      add(gameOver!)?.then((value) {
+        gameOver!.y = (Singleton.instance.screenSize.height) / 3;
+        gameOver!.x = (Singleton.instance.screenSize.width) / 4;
+      });
+      bottom.stop();
+      for (var element in allTubes) {
+        element.stop();
+      }
     }
   }
 
@@ -145,23 +159,32 @@ class FlutterBirdGame extends FlameGame {
     switch (status) {
       case GameStatus.waiting:
         status = GameStatus.playing;
-        gameOver.x = -ComponentDimensions.gameOverWidth;
-        gameOver.y = -ComponentDimensions.gameOverHeight;
-        bird.jump();
+        if (gameOver != null) {
+          remove(gameOver!);
+          gameOver = null;
+        }
         bird.reset();
+        bird.jump();
         bottom.move();
+        for (var element in allTubes) {
+          element.move();
+        }
         break;
       case GameStatus.gameOver:
         status = GameStatus.waiting;
-        gameOver.x = -ComponentDimensions.gameOverWidth;
-        gameOver.y = -ComponentDimensions.gameOverHeight;
-        initPositions();
+        if (gameOver != null) {
+          remove(gameOver!);
+          gameOver = null;
+        }
         bird.reset();
         score.reset();
+        bottom.stop();
+        for (var element in allTubes) {
+          element.stop();
+        }
+        initPositions();
         break;
       case GameStatus.playing:
-        gameOver.x = -ComponentDimensions.gameOverWidth;
-        gameOver.y = -ComponentDimensions.gameOverHeight;
         bird.jump();
         break;
       default:

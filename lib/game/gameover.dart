@@ -4,6 +4,8 @@ import 'package:flame/components.dart';
 import 'package:flutter_bird/game/config.dart';
 
 class GameOver extends PositionComponent {
+
+
   @override
   Future<void>? onLoad() async {
     Sprite bgSprite = await Sprite.load(

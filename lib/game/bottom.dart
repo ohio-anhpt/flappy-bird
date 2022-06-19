@@ -64,4 +64,8 @@ class Bottom extends PositionComponent {
   void move() {
     status = BottomStatus.moving;
   }
+
+  void stop() {
+    status = BottomStatus.waiting;
+  }
 }
